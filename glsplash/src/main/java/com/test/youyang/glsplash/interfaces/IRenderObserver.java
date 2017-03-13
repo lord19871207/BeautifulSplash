@@ -6,4 +6,6 @@ package com.test.youyang.glsplash.interfaces;
 
 public interface IRenderObserver {
     int[] getTextures();
+
+    void onSurfaceChanged(int width, int height);
 }

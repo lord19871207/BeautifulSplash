@@ -14,7 +14,10 @@ import android.util.Log;
 public class TextureHelper {
     public static final String TAG = "TextureHelper";
 
-    public static int[] loadTexture(Context context, int[] resourceIds) {
+    public static int[] loadTexture(Context context, int id1, int id2) {
+        int[] resourceIds = new int[2];
+        resourceIds[0] = id1;
+        resourceIds[1] = id2;
         if(resourceIds == null || resourceIds.length==0){
             return null;
         }

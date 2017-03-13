@@ -30,7 +30,7 @@ public class MainActivity extends Activity{
         mView = new GLSwitchView(this);
         int index = getIntent().getIntExtra("index",0);
         mView.setStyleIndex(index);
-        mView.setPictureList(new int[]{R.drawable.img_loading,R.drawable.img_loadings});
+        mView.setPictureList(new int[]{R.drawable.img_loading,R.drawable.img_loadings,R.drawable.img_guider_checkin});
         setContentView(mView);
     }
 

@@ -16,7 +16,6 @@
 
 
 precision mediump float;
-// General parameters
 uniform sampler2D from;
 uniform sampler2D to;
 uniform float progress;

@@ -7,6 +7,7 @@ import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Scroller;
@@ -15,26 +16,28 @@ import android.widget.Toast;
 import com.test.youyang.glsplash.interfaces.IPictureProvider;
 import com.test.youyang.glsplash.interfaces.IRenderObserver;
 
-import java.util.List;
-
 /**
  * Created by youyang on 16/7/24.
  */
 public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRenderObserver {
 
-
+    private static final String TAG = "GLSwitchView";
+    private boolean isMoved;
     private float process = 0.0f;
-    private int[] size;
-    private float moveX = 0;
-    private int[] mDrawables;
+    private int[] mSize;
+//    private float moveX = 0;
+    private int[] mDrawables = new int[]{};
     private Scroller mScroller;
 
     private PointRender mRender;
+
+    private static int TOUCH_SLOP;
 
     private Context mContext;
     private boolean mNeedToChange = true;
 
     private int mCurrentIndex = 0;
+    private int mTempCurrentIndex = 0;
 
     public GLSwitchView(Context context) {
         super(context);
@@ -45,8 +48,8 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
         mContext = context;
         mScroller = new Scroller(context, new DecelerateInterpolator());
         mFlingRunnable = new FlingRunnable();
-        size = getScreenSize(context);
-
+        mSize = getScreenSize(context);
+        TOUCH_SLOP = ViewConfiguration.get(mContext).getScaledTouchSlop();
         mRender = new PointRender(context, this);
         if (isSupportES2(context)) {
             //设定egl版本
@@ -96,25 +99,32 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
         mCurrentY = event.getY();
 
         handleTouchCommon(event);
+
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+
                 break;
             case MotionEvent.ACTION_MOVE:
-                moveX = event.getX();
+                if(isMoved){
+                    queueEvent(new Runnable() {
+                        @Override
+                        public void run() {
+                            process = Math.abs(mMoveX / mSize[0]);
+                            mRender.setProcess(process);
+                            Log.d("youyang", "process :" + process);
+                            requestRender();
+                        }
+                    });
+                }
 
-                queueEvent(new Runnable() {
-                    @Override
-                    public void run() {
-                        process = Math.abs(moveX / size[0]);
-                        mRender.setProcess(process);
-                        Log.d("youyang", "process :" + process);
-                    }
-                });
 
                 break;
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
 
+                startScollAnimation(isMoved);
+                requestRender();
+                Log.d("youyang","mCurrentIndex:"+mCurrentIndex  +" , mNeedToChange:"+mNeedToChange);
                 break;
             default:
                 break;
@@ -122,7 +132,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
         mPreY = mCurrentY;
         mPreX = mCurrentX;
 
-        requestRender();
+
         return true;
     }
 
@@ -130,6 +140,8 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
      * 上一页下一页的趋势 0空闲状态；1 上一页；2 下一页；3菜单；4长按事件
      */
     private int mScrollDirection = DIRECTION_VOID;
+
+    private int mTempScrollDirection = DIRECTION_VOID;
     /**
      * 空闲状态or点击状态
      */
@@ -160,18 +172,16 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
      * touch事件down时的x轴坐标
      */
     private float mTouchDownX;
-
     private float mPreY;
     private float mCurrentY;
     private float mDy;
-
     private float mPreX;
     private float mCurrentX;
     private float mDx;
     private float mMoveX = 0;
     private float mMoveY;
     private FlingRunnable mFlingRunnable;
-
+    private boolean flag;
 
     /**
      * 处理触摸事件的公共部分
@@ -183,30 +193,58 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
                 mTouchDownX = event.getX();
                 mTouchDownY = event.getY();
                 break;
-
             case MotionEvent.ACTION_MOVE:
-                mDy = mCurrentY - mPreY;
-                mDx = mCurrentX - mPreX;
-
-                if (mDx > 0) {
-                    mScrollDirection = DIRECTION_LAST;
-                } else if (mDx < 0) {
-                    mScrollDirection = DIRECTION_NEXT;
-                }
                 mMoveX = event.getX();
                 mMoveY = event.getY();
-
+                mDy = mCurrentY - mPreY;
+                mDx = mCurrentX - mPreX;
+                if (Math.abs(mTouchDownX - mMoveX) > TOUCH_SLOP
+                        || Math.abs(mTouchDownY - mMoveY) > TOUCH_SLOP) {
+                    // 移动超过阈值，则表示移动了
+                    isMoved = true;
+                }
+                if (isMoved) {
+                    if (flag) {
+                        if (mDx > 0) {
+                            mScrollDirection = DIRECTION_LAST;
+                            if (mCurrentIndex != 0) {
+                                mCurrentIndex--;
+                            }
+                        } else {
+                            mScrollDirection = DIRECTION_NEXT;
+                            if (mCurrentIndex != mDrawables.length - 1) {
+                                mCurrentIndex++;
+                            }
+                        }
+                        flag = false;
+                        mNeedToChange = true;
+                    }
+                }
                 break;
-
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 mLastTouchX = event.getX();
                 mLastTouchY = event.getY();
-                startScollAnimation(false);
+                if (!isMoved) {
+                    mScrollDirection = getDirection(mLastTouchX);
+                }
+                mTempScrollDirection = mScrollDirection;
+                isMoved = false;
+                flag = true;
                 break;
             default:
                 break;
         }
+    }
+
+    private int getDirection(float lastTouchX) {
+
+        if (lastTouchX < mSize[0] / 2f) {
+            mScrollDirection = DIRECTION_LAST;
+        } else {
+            mScrollDirection = DIRECTION_NEXT;
+        }
+        return mScrollDirection;
     }
 
 
@@ -227,22 +265,21 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
             if (mDx < 0) {
                 distance = mTouchDownX - mLastTouchX < 0 ? (int) (mTouchDownX - mLastTouchX) : 0;
             } else {
-                distance = (int) (size[0] - mLastTouchX + mTouchDownX);
+                distance = (int) (mSize[0] - mLastTouchX + mTouchDownX);
             }
         }
         if (isTouch) {
-            if (mScrollDirection == DIRECTION_LAST) {
-                mFlingRunnable.startByTouch(size[0]);
-            } else if (mScrollDirection == DIRECTION_NEXT) {
-                mFlingRunnable.startByTouch(-size[0]);
-            }
-        } else {
             if (distance == 0) {
                 distance = 1;
             }
             mFlingRunnable.startByTouch(distance);
+        } else {
+            if (mScrollDirection == DIRECTION_LAST) {
+                mFlingRunnable.startByTouch(mSize[0]);
+            } else if (mScrollDirection == DIRECTION_NEXT) {
+                mFlingRunnable.startByTouch(-mSize[0]);
+            }
         }
-
     }
 
     @Override
@@ -255,15 +292,21 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
         mRender.setIndex(styleIndex);
     }
 
-    private int[] ids ;
+    private int[] mTextureIds;
 
     @Override
     public int[] getTextures() {
-        if(mNeedToChange){
-            ids = TextureHelper.loadTexture(mContext, mDrawables);
+        if (mNeedToChange) {
+            mTextureIds = TextureHelper.loadTexture(mContext, mDrawables[mTempCurrentIndex], mDrawables[mCurrentIndex]);
             mNeedToChange = false;
         }
-        return ids;
+        return mTextureIds;
+    }
+
+    @Override
+    public void onSurfaceChanged(int width, int height) {
+        mSize[0] = width;
+        mSize[1] = height;
     }
 
     class FlingRunnable implements Runnable {
@@ -284,7 +327,6 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
          * @param distance 滑动的距离
          */
         public void startByTouch(int distance) {
-            mNeedToChange = true;
             startUsingDistance(distance, TOUCH_ANIMATION_DURATION);
         }
 
@@ -300,7 +342,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
             startCommon();
             mLastFlingX = 0;
             // 起始点为（0，0），x偏移量为 -distance ，y的偏移量为 0，持续时间
-            mScroller.startScroll(0, 0, -distance, 0, Math.max(MIN_ANIMATION_DURATION, Math.abs(distance) * during / size[0]));
+            mScroller.startScroll(0, 0, -distance, 0, Math.max(MIN_ANIMATION_DURATION, Math.abs(distance) * during / mSize[0]));
             post(this);
         }
 
@@ -309,6 +351,8 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
          */
         private void endFling() {
             mScroller.forceFinished(true);
+            mNeedToChange = true;
+            mTempCurrentIndex = mCurrentIndex;
         }
 
         @Override
@@ -320,9 +364,9 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
             int delta = mLastFlingX - x;
             if (delta != 0) {
                 mMoveX += delta;
-                Log.d("youyang", "size[0]" + size[0] + ", size[1]:" + size[1]);
+                Log.d("youyang", "mSize[0]" + mSize[0] + ", mSize[1]:" + mSize[1]);
 
-                float process = Math.abs(mMoveX) / (size[0]);
+                float process = Math.abs(mMoveX) / (mSize[0]);
                 Log.d("youyang", "process" + process);
                 mRender.setProcess(process);
                 requestRender();
