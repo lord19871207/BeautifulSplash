@@ -25,7 +25,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
     private boolean isMoved;
     private float process = 0.0f;
     private int[] mSize;
-//    private float moveX = 0;
+    //    private float moveX = 0;
     private int[] mDrawables = new int[]{};
     private Scroller mScroller;
 
@@ -96,7 +96,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
     @Override
     public boolean onTouchEvent(MotionEvent event) {
 
-        if(handleTouchCommon(event)){
+        if (handleTouchCommon(event)) {
             return true;
         }
 
@@ -105,7 +105,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
 
                 break;
             case MotionEvent.ACTION_MOVE:
-                if(isMoved){
+                if (isMoved) {
                     queueEvent(new Runnable() {
                         @Override
                         public void run() {
@@ -122,10 +122,12 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
 
-                startScollAnimation(isMoved);
+                if (!isTouchCancle) {
+                    startScollAnimation(isMoved);
+                }
                 isMoved = false;
                 requestRender();
-                Log.d("youyang","mCurrentIndex:"+mCurrentIndex  +" , mNeedToChange:"+mNeedToChange);
+                Log.d("youyang", "mCurrentIndex:" + mCurrentIndex + " , mNeedToChange:" + mNeedToChange);
                 break;
             default:
                 break;
@@ -178,7 +180,10 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
     private float mMoveX = 0;
     private float mMoveY;
     private FlingRunnable mFlingRunnable;
-    private boolean flag = true;
+    /**
+     * 用于保证控制过程在滑动过程中只走一遍
+     */
+    private boolean mFlag = true;
 
     private boolean isTouchCancle;
 
@@ -187,8 +192,8 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
      */
     private boolean handleTouchCommon(MotionEvent event) {
 
-        if(mAnimate){
-            Log.d("youyang","mAnimate:"+mAnimate);
+        if (mAnimate) {
+            Log.d("youyang", "mAnimate:" + mAnimate);
             return true;
         }
 
@@ -214,8 +219,8 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
                 mPreY = mCurrentY;
                 mPreX = mCurrentX;
                 if (isMoved) {
-                    if (flag) {
-                        flag = false;
+                    if (mFlag) {
+                        mFlag = false;
                         mNeedToChange = true;
                         if (mDx > 0) {
                             mScrollDirection = DIRECTION_LAST;
@@ -223,8 +228,8 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
                                 mCurrentIndex--;
                                 isTouchCancle = false;
                             } else {
-                                Toast.makeText(mContext,"已经翻到首页",Toast.LENGTH_SHORT).show();
-                                Log.d(TAG,"已经翻到首页");
+                                Toast.makeText(mContext, "已经翻到首页", Toast.LENGTH_SHORT).show();
+                                Log.d(TAG, "已经翻到首页");
                                 isTouchCancle = true;
                                 return true;
                             }
@@ -233,9 +238,9 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
                             if (mCurrentIndex != mDrawables.length - 1) {
                                 mCurrentIndex++;
                                 isTouchCancle = false;
-                            }else {
-                                Toast.makeText(mContext,"已经翻到末页",Toast.LENGTH_SHORT).show();
-                                Log.d(TAG,"已经翻到末页");
+                            } else {
+                                Toast.makeText(mContext, "已经翻到末页", Toast.LENGTH_SHORT).show();
+                                Log.d(TAG, "已经翻到末页");
                                 isTouchCancle = true;
                                 return true;
                             }
@@ -243,7 +248,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
 
                     }
 
-                    if(isTouchCancle){
+                    if (isTouchCancle) {
                         return true;
                     }
                 }
@@ -253,10 +258,19 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
                 mLastTouchX = event.getX();
                 mLastTouchY = event.getY();
                 if (!isMoved) {
+                    mNeedToChange = true;
                     mScrollDirection = getDirection(mLastTouchX);
+                    if (mScrollDirection == DIRECTION_LAST && mCurrentIndex != 0) {
+                        mCurrentIndex--;
+                    }
+
+                    if (mScrollDirection == DIRECTION_NEXT && mCurrentIndex != mDrawables.length - 1) {
+                        mCurrentIndex++;
+                    }
+
                 }
                 mTempScrollDirection = mScrollDirection;
-                flag = true;
+                mFlag = true;
                 break;
             default:
                 break;
@@ -303,10 +317,9 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
                 // 手左右来回划，最后滑的方向是从右往左
                 if (mDx < 0) {
 //                distance = mTouchDownX - mLastTouchX < 0 ? (int) (mTouchDownX - mLastTouchX) : 0;
-                    distance = -(int)mLastTouchX;
+                    distance = -(int) mLastTouchX;
                 } else {
-
-                    distance = mSize[0] - (int)mLastTouchX;
+                    distance = mSize[0] - (int) mLastTouchX;
                 }
             }
             mFlingRunnable.startByTouch(distance);
@@ -330,7 +343,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
     @Override
     public int[] getTextures() {
         if (mNeedToChange) {
-            if(mScrollDirection == DIRECTION_NEXT){
+            if (mScrollDirection == DIRECTION_NEXT) {
                 mTextureIds = TextureHelper.loadTexture(mContext, mDrawables[mCurrentIndex], mDrawables[mTempCurrentIndex]);
             } else {
                 mTextureIds = TextureHelper.loadTexture(mContext, mDrawables[mTempCurrentIndex], mDrawables[mCurrentIndex]);
@@ -374,7 +387,7 @@ public class GLSwitchView extends GLSurfaceView implements IPictureProvider, IRe
          * @param during   持续时间
          */
         public void startUsingDistance(int distance, int during) {
-            if (distance == 0){
+            if (distance == 0) {
                 mAnimate = false;
                 return;
             }
